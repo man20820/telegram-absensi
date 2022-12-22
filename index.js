@@ -1,197 +1,128 @@
-require("dotenv").config();
-const express = require("express");
-const app = express();
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const mongodb = require("mongodb");
-const mongoose = require("mongoose");
-const res = require("express/lib/response");
+require('dotenv').config()
+const mongoose = require('mongoose')
+const { Telegraf } = require('telegraf')
+const { message } = require('telegraf/filters')
+const { getUsernamesAndBody, now } = require('./helper')
 
-const { Telegraf } = require("telegraf");
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-
-const dayjs = require("dayjs");
-var timezone = require("dayjs/plugin/timezone");
-var utc = require("dayjs/plugin/utc");
-dayjs.extend(utc);
-const tz = "Asia/Jakarta";
-dayjs.extend(timezone);
-
-//mongodb connection
-const connection = mongoose.connection;
-connection.on("error", console.log.bind(console, "connection error: "));
-connection.once("open", () => {
-  console.log("mongodb success");
-});
-const uri = process.env.MONGO_URI || $MONGO_URI;
+// mongodb connection
+const connection = mongoose.connection
+connection.on('error', (err) => console.error(err))
+connection.once('open', () => {
+  console.log('mongodb success')
+})
+const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/absensi'
+mongoose.set('strictQuery', false)
 mongoose.connect(uri, {
-  useNewUrlParser: true,
-});
-const Schema = mongoose.Schema;
-const absensiSchema = new Schema({
-  telegram_user: String,
-  online_status: String,
-  afk_status: String,
-  is_online: String,
-  is_afk: String,
-});
-const ABSENSI = mongoose.model("ABSENSI", absensiSchema);
+  useNewUrlParser: true
+})
 
-// //basic configuration
-// const port = process.env.PORT || $PORT;
+const ABSENSI = require('./model')
 
-// app.use(cors());
-// app.use(bodyParser.json());
-
-// app.route("/").get((req, res) => {
-//     res.send("info man@tkjpedia.com");
-//   });
-
-console.log(dayjs().hour() + ":" + dayjs().minute() + ":" + dayjs().second());
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
 // bot
-bot.command("start", (ctx) => {
-  console.log(ctx.from);
-  bot.telegram.sendMessage(
-    ctx.chat.id,
-    "Haii, selamat datang di bot absensi!",
-    {}
-  );
-});
-bot.command("login", async (ctx) => {
-  console.log(ctx.from);
-  let from = "@" + ctx.from["username"];
-  let when =
-    "Login sejak " +
-    dayjs().hour() +
-    ":" +
-    dayjs().minute() +
-    ":" +
-    dayjs().second();
-  let message = ctx.message.text;
-  let messageSplitted = message.split(" ");
-  let status = messageSplitted[1];
-  console.log(from);
-  console.log(when);
-  console.log(status);
-  ctx.reply("Ok");
-  const Data = await ABSENSI.findOneAndUpdate(
+bot.command('start', (ctx) => {
+  ctx.reply('Haii, selamat datang di bot absensi!')
+})
+bot.command('login', async (ctx) => {
+  const from = '@' + ctx.from.username
+  const when = `Login sejak ${now().format('HH:mm:ss')}`
+  await ABSENSI.findOneAndUpdate(
     { telegram_user: from },
-    { $set: { online_status: when, is_online: "1", is_afk: "0" } },
+    { $set: { online_status: when, is_online: true, is_afk: false } },
     { upsert: true, new: true }
-  );
-  Data.telegram_user;
-  Data.online_status;
-});
+  )
+  ctx.reply('Ok')
+})
 
-bot.command("logout", async (ctx) => {
-  console.log(ctx.from);
-  let from = "@" + ctx.from["username"];
-  let when =
-    "Logout sejak " +
-    dayjs().hour() +
-    ":" +
-    dayjs().minute() +
-    ":" +
-    dayjs().second();
-  let message = ctx.message.text;
-  let messageSplitted = message.split(" ");
-  let status = messageSplitted[1];
-  console.log(from);
-  console.log(when);
-  console.log(status);
-  ctx.reply("Ok");
-  const Data = await ABSENSI.findOneAndUpdate(
+bot.command('logout', async (ctx) => {
+  const from = '@' + ctx.from.username
+  const when = `Logout sejak ${now().format('HH:mm:ss')}`
+
+  await ABSENSI.findOneAndUpdate(
     { telegram_user: from },
-    { $set: { online_status: when, is_online: "0" } },
+    { $set: { online_status: when, is_online: false } },
     { upsert: true, new: true }
-  );
-  Data.telegram_user;
-  Data.online_status;
-});
+  )
+  ctx.reply('Ok')
+})
 
-bot.command("afk", async (ctx) => {
-  console.log(ctx.from);
-  let from = "@" + ctx.from["username"];
-  let when =
-    "Afk sejak " +
-    dayjs().hour() +
-    ":" +
-    dayjs().minute() +
-    ":" +
-    dayjs().second();
-  let message = ctx.message.text;
-  let messageSplitted = message.split(" ");
-  let status = messageSplitted[1];
-  console.log(from);
-  console.log(when);
-  console.log(status);
-  ctx.reply("Ok");
-  const Data = await ABSENSI.findOneAndUpdate(
+bot.command('afk', async (ctx) => {
+  const from = '@' + ctx.from.username
+  const when = `Afk sejak ${now().format('HH:mm:ss')}`
+
+  const message = ctx.message.text
+  const messageSplitted = message.split(' ')
+  const afkReason = message.replace(messageSplitted[0], '').trim()
+  await ABSENSI.findOneAndUpdate(
     { telegram_user: from },
-    { $set: { online_status: when, is_afk: "1", afk_status: status } },
+    { $set: { online_status: when, is_afk: true, afk_status: afkReason } },
     { upsert: true, new: true }
-  );
-  Data.telegram_user;
-  Data.online_status;
-  Data.afk_status;
-});
+  )
+  ctx.reply('Ok')
+})
 
-bot.command("back", async (ctx) => {
-  console.log(ctx.from);
-  let from = "@" + ctx.from["username"];
-  let when =
-    "Online sejak " +
-    dayjs().hour() +
-    ":" +
-    dayjs().minute() +
-    ":" +
-    dayjs().second();
-  let message = ctx.message.text;
-  let messageSplitted = message.split(" ");
-  let status = messageSplitted[1];
-  console.log(from);
-  console.log(when);
-  console.log(status);
-  ctx.reply("Ok");
-  const Data = await ABSENSI.findOneAndUpdate(
+bot.command('back', async (ctx) => {
+  const from = '@' + ctx.from.username
+  const when = `Online sejak ${now().format('HH:mm:ss')}`
+
+  await ABSENSI.findOneAndUpdate(
     { telegram_user: from },
-    { $set: { online_status: when, is_afk: "0", afk_status: status } },
+    { $set: { online_status: when, is_afk: false, afk_status: '' } },
     { upsert: true, new: true }
-  );
-  Data.telegram_user;
-  Data.online_status;
-  Data.afk_status;
-});
+  )
 
-bot.command("ping", async (ctx) => {
-  console.log(ctx.from);
-  let message = ctx.message.text;
-  let messageSplitted = message.split(" ");
-  let status = messageSplitted[1];
-  // console.log(from)
-  // console.log(status)
-  let Data = await ABSENSI.findOne({
-    telegram_user: status,
-  });
+  ctx.reply('Ok')
+})
+
+bot.command('ping', async (ctx) => {
+  const message = ctx.message.text
+  const messageSplitted = message.split(' ')
+  const status = messageSplitted[1]
+
+  const Data = await ABSENSI.findOne({
+    telegram_user: status
+  })
   if (Data) {
-    if (Data.is_afk == 1) {
-      ctx.reply(
-        Data.telegram_user + ", " + Data.online_status + ", " + Data.afk_status
-      );
-    } else if (Data.is_online == 1) {
-      ctx.reply("Halo " + Data.telegram_user + ", " + Data.online_status);
+    if (Data.is_afk) {
+      ctx.reply(`${Data.telegram_user}, ${Data.online_status} ${Data.afk_status !== '' ? `, ${Data.afk_status}` : ''}`)
+    } else if (Data.is_online) {
+      ctx.reply('Halo ' + Data.telegram_user + ', ' + Data.online_status)
     } else if (Data) {
-      ctx.reply(Data.telegram_user + ", " + Data.online_status);
+      ctx.reply(Data.telegram_user + ', ' + Data.online_status)
     } else {
-      ctx.reply(status + " tidak ada");
+      ctx.reply(status + ' tidak ada')
     }
   } else {
-    ctx.reply(status + " tidak ada");
+    ctx.reply(status + ' tidak ada')
   }
-});
+})
 
-bot.launch();
+bot.on(message('text'), async (ctx) => {
+  const msg = ctx.message.text
 
-//listen
-// app.listen(port);
+  const taggedUsernames = getUsernamesAndBody(msg)
+
+  if (taggedUsernames.length > 0) {
+    const taggedUsers = await ABSENSI.find({
+      telegram_user: {
+        $in: taggedUsernames
+      }
+    })
+
+    const usersMesages = []
+
+    for (let i = 0; i < taggedUsers.length; i++) {
+      const user = taggedUsers[i]
+      if (user.is_afk) {
+        usersMesages.push(`${user.telegram_user} ${(user.afk_status !== '' ? `lagi ${user.afk_status}` : '')}`)
+      }
+    }
+
+    if (usersMesages.length > 0) {
+      ctx.reply(`kayane bocah iki lagi afk \n${usersMesages.join('\n')}`)
+    }
+  }
+})
+
+bot.launch()
