@@ -41,7 +41,7 @@ bot.command('logout', async (ctx) => {
 
   await ABSENSI.findOneAndUpdate(
     { telegram_user: from },
-    { $set: { online_status: when, is_online: false } },
+    { $set: { online_status: when, is_online: false, afk_status: "" } },
     { upsert: true, new: true }
   )
   ctx.reply('Ok')
@@ -73,6 +73,22 @@ bot.command('back', async (ctx) => {
   )
 
   ctx.reply('Ok')
+})
+
+bot.command('list', async (ctx) => {
+    ABSENSI.find({}, function(err, users) {
+      let userMap = {};
+  
+      users.forEach(function(user) {
+        userMap[user._id] = user;
+      });
+      listUser = []
+      for(index in userMap) {
+        console.log(userMap[index]);
+        listUser.push(`${userMap[index].telegram_user} ${userMap[index].online_status} ${(userMap[index].afk_status !== '' ? `lagi ${userMap[index].afk_status}` : '')}`)
+      }
+      ctx.reply(listUser.join('\n'))
+    });
 })
 
 bot.command('ping', async (ctx) => {
