@@ -33,6 +33,8 @@ const absensiSchema = new Schema({
   telegram_user: String,
   online_status: String,
   afk_status: String,
+  is_online: String,
+  is_afk: String,
 });
 const ABSENSI = mongoose.model("ABSENSI", absensiSchema);
 
@@ -56,7 +58,7 @@ bot.command('start', ctx => {
 })
 bot.command('login',async (ctx) => {
     console.log(ctx.from)
-    let from = ctx.from["first_name"]
+    let from = "@" + ctx.from["username"]
     let when = "Login sejak " + dayjs().hour() + ":" + dayjs().minute() + ":" + dayjs().second()
     let message = ctx.message.text
     let messageSplitted = message.split(' ')
@@ -67,7 +69,7 @@ bot.command('login',async (ctx) => {
     ctx.reply('Ok')
     const Data = await ABSENSI.findOneAndUpdate(
         { telegram_user: from },
-        { $set: { online_status: when } },
+        { $set: { online_status: when, is_online: "1", is_afk: "1" } },
         { upsert: true, new: true }
       );
     Data.telegram_user
@@ -76,7 +78,7 @@ bot.command('login',async (ctx) => {
 
 bot.command('logout',async (ctx) => {
     console.log(ctx.from)
-    let from = ctx.from["first_name"]
+    let from = "@" + ctx.from["username"]
     let when = "Logout sejak " + dayjs().hour() + ":" + dayjs().minute() + ":" + dayjs().second()
     let message = ctx.message.text
     let messageSplitted = message.split(' ')
@@ -87,7 +89,7 @@ bot.command('logout',async (ctx) => {
     ctx.reply('Ok')
     const Data = await ABSENSI.findOneAndUpdate(
         { telegram_user: from },
-        { $set: { online_status: when } },
+        { $set: { online_status: when, is_online: "0" } },
         { upsert: true, new: true }
       );
     Data.telegram_user
@@ -96,7 +98,7 @@ bot.command('logout',async (ctx) => {
 
 bot.command('afk',async (ctx) => {
     console.log(ctx.from)
-    let from = ctx.from["first_name"]
+    let from = "@" + ctx.from["username"]
     let when = "Afk sejak " + dayjs().hour() + ":" + dayjs().minute() + ":" + dayjs().second()
     let message = ctx.message.text
     let messageSplitted = message.split(' ')
@@ -107,7 +109,7 @@ bot.command('afk',async (ctx) => {
     ctx.reply('Ok')
     const Data = await ABSENSI.findOneAndUpdate(
         { telegram_user: from },
-        { $set: { online_status: when, afk_status: status } },
+        { $set: { online_status: when, is_afk:"1", afk_status: status } },
         { upsert: true, new: true }
       );
     Data.telegram_user
@@ -115,8 +117,52 @@ bot.command('afk',async (ctx) => {
     Data.afk_status
 });
 
-let anu = "*"
-bot.hears(anu, (ctx) => ctx.reply('Hey there'));
+bot.command('back',async (ctx) => {
+  console.log(ctx.from)
+  let from = "@" + ctx.from["username"]
+  let when = "Online sejak " + dayjs().hour() + ":" + dayjs().minute() + ":" + dayjs().second()
+  let message = ctx.message.text
+  let messageSplitted = message.split(' ')
+  let status = messageSplitted[1]
+  console.log(from)
+  console.log(when)
+  console.log(status)
+  ctx.reply('Ok')
+  const Data = await ABSENSI.findOneAndUpdate(
+      { telegram_user: from },
+      { $set: { online_status: when, is_afk:"0", afk_status: status } },
+      { upsert: true, new: true }
+    );
+  Data.telegram_user
+  Data.online_status
+  Data.afk_status
+});
+
+bot.command('ping',async (ctx) => {
+  console.log(ctx.from)
+  let message = ctx.message.text
+  let messageSplitted = message.split(' ')
+  let status = messageSplitted[1]
+  // console.log(from)
+  // console.log(status)
+  let Data = await ABSENSI.findOne({
+    telegram_user: status,
+  });
+  if (Data) {
+    if (Data.is_online == 1) {
+      ctx.reply("Halo " + Data.telegram_user + ", " + Data.online_status)
+    } else if (Data.is_afk == 1) {
+      ctx.reply(Data.telegram_user + ", " + Data.online_status + Data.afk_status)
+    } else if (Data) {
+      ctx.reply(Data.telegram_user + ", " + Data.online_status)
+    } else {
+      ctx.reply(status + " tidak ada")
+    }
+  } else {
+    ctx.reply(status + " tidak ada")
+  }
+
+});
 
 bot.launch();
 
