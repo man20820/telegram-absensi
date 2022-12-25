@@ -39,9 +39,9 @@ jobs:
         uses: actions/checkout@v3
       - name: generate
         run: |
-          ls -al deployment/docker/
-          chmod +x -R deployment/docker/
-          ./deployment/docker/env-filter.sh
+          ls -al deployments/docker/
+          chmod +x -R deployments/docker/
+          ./deployments/docker/env-filter.sh
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
@@ -52,7 +52,7 @@ jobs:
         run: ssh-keyscan -H ${{ env.SSH_HOST }} -p ${{ env.SSH_PORT }} >> ~/.ssh/known_hosts
       - name: sync
         run: |
-          rsync -avz -e "ssh -p ${{ env.SSH_PORT }}" deployment/docker/ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/home/deployer/${{ github.event.repository.name }}
+          rsync -avz -e "ssh -p ${{ env.SSH_PORT }}" deployments/docker/ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/home/deployer/${{ github.event.repository.name }}
       - name: login to container registry
         run: |
           ssh  ${{ env.SSH_USER }}@${{ env.SSH_HOST }} 'echo ${{ env.CR_PAT }} | docker login ${{ env.CR }} -u ${{ env.CR_USER }} --password-stdin'
