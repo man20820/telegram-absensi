@@ -12,11 +12,12 @@ env:
   IMAGE_NAME_RAW: "ghcr.io/tkjpedia/telegram-absensi"
   MONGO_URI: "${{ secrets.DEV_MONGO_URI }}"
   TELEGRAM_BOT_TOKEN: "${{ secrets.DEV_TELEGRAM_BOT_TOKEN }}"
+  TELEGRAM_REPORT_CHAT_ID: "${{ secrets.TELEGRAM_REPORT_CHAT_ID }}"
   APP_NAME: "telegram-absensi"
 
 on:
   push:
-    branches: feature/cicd
+    branches: dev
   workflow_dispatch:
     
 jobs:
