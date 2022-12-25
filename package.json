@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "lint": "standard --verbose | snazzy",
+    "lintfix": "standard --fix"
   },
   "repository": {
     "type": "git",

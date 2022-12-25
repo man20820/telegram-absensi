@@ -10,4 +10,5 @@ const absensiSchema = new mongoose.Schema({
   is_online: Boolean,
   is_afk: Boolean
 })
+
 module.exports = mongoose.model('ABSENSI', absensiSchema)
