@@ -18,6 +18,7 @@ mongoose.connect(uri, {
 })
 
 const ABSENSI = require('./model')
+const STICKER = require('./model')
 
 // schedule to reset data
 cron.schedule('1 0 * * *', () => {
@@ -196,6 +197,25 @@ bot.command('ping', async (ctx) => {
   } else {
     ctx.reply(status + ' tidak ada')
   }
+})
+
+bot.command('addlogin', async (ctx) => {
+  ctx.reply('Kirim sticker yang akan digunakan login!', {
+    reply_to_message_id: ctx.message.message_id
+  })
+  bot.on('sticker', async (ctx) => {
+    console.log(ctx.message.sticker.file_unique_id)
+    const stickerId = ctx.message.sticker.file_unique_id
+    await STICKER.findOneAndUpdate(
+      {
+        $set: {
+          sticker_id: stickerId,
+          sticker_for: 'login'
+        }
+      },
+      { upsert: true, new: true }
+    )
+  })
 })
 
 bot.on(message('text'), async (ctx) => {

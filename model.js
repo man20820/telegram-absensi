@@ -10,4 +10,10 @@ const absensiSchema = new mongoose.Schema({
   is_online: Boolean,
   is_afk: Boolean
 })
-module.exports = mongoose.model('ABSENSI', absensiSchema)
+
+const stickerSchema = new mongoose.Schema({
+  sticker_id: String,
+  sticker_for: String
+})
+
+module.exports = mongoose.model('ABSENSI', absensiSchema, 'STICKER', stickerSchema)
