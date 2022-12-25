@@ -50,7 +50,7 @@ jobs:
           known_hosts: 'hello-world'
           if_key_exists: ignore
       - name: Adding Known Hosts
-        run: ssh-keyscan -H ${{ env.SSH_HOST }} -p ${{ env.SSH_PORT }} >> ~/.ssh/known_hosts
+        run: ssh-keyscan -p ${{ env.SSH_PORT }} -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
       - name: sync
         run: |
           rsync -avz -e "ssh -p ${{ env.SSH_PORT }}" deployments/docker/ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/home/deployer/${{ github.event.repository.name }}
