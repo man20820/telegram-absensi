@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONTAINER_PATH="/deployment/docker/container.sh"
+CONTAINER_PATH="/deployments/docker/container.sh"
 
 # container
 sed -i "s|{{ MONGO_URI }}|$MONGO_URI|g" $CONTAINER_PATH
