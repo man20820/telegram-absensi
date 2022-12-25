@@ -1,0 +1,63 @@
+name: Build & Deploy Development
+
+env:
+  CR: "ghcr.io"
+  CR_USER: ${{ secrets.CR_USER }}
+  CR_PAT: ${{ secrets.CR_PAT }}
+  SSH_HOST: "${{ secrets.DEV_SSH_HOST }}"
+  SSH_PORT: "${{ secrets.DEV_SSH_PORT }}"
+  SSH_USER: "${{ secrets.DEV_SSH_USER }}"
+  SSH_KEY: "${{ secrets.DEV_SSH_KEY }}"
+  IMAGE_NAME: "ghcr.io/tkjpedia/telegram-absensi:${{ github.sha }}"
+  IMAGE_NAME_RAW: "ghcr.io/tkjpedia/telegram-absensi"
+  MONGO_URI: "${{ secrets.DEV_MONGO_URI }}"
+  TELEGRAM_BOT_TOKEN: "${{ secrets.DEV_TELEGRAM_BOT_TOKEN }}"
+  TELEGRAM_REPORT_CHAT_ID: "${{ secrets.TELEGRAM_REPORT_CHAT_ID }}"
+  APP_NAME: "telegram-absensi"
+
+on:
+  push:
+    branches: dev
+  workflow_dispatch:
+    
+jobs:
+  build:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name:
+        uses: actions/checkout@v3
+      - name: login to container registry
+        run: echo ${{ env.CR_PAT }} | docker login ${{ env.CR }} -u ${{ env.CR_USER }} --password-stdin
+      - name: build docker image 
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+          docker push ${{ env.IMAGE_NAME }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: generate
+        run: |
+          ls -al deployments/docker/
+          chmod +x -R deployments/docker/
+          ./deployments/docker/env-filter.sh
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ env.SSH_KEY }} 
+          known_hosts: 'hello-world'
+          if_key_exists: ignore
+      - name: Adding Known Hosts
+        run: ssh-keyscan -p ${{ env.SSH_PORT }} -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
+      - name: sync
+        run: |
+          rsync -avz -e "ssh -p ${{ env.SSH_PORT }}" deployments/docker/ ${{ env.SSH_USER }}@${{ env.SSH_HOST }}:/home/deployer/${{ github.event.repository.name }}
+      - name: login to container registry
+        run: |
+          ssh  ${{ env.SSH_USER }}@${{ env.SSH_HOST }} -p ${{ env.SSH_PORT }} 'echo ${{ env.CR_PAT }} | docker login ${{ env.CR }} -u ${{ env.CR_USER }} --password-stdin'
+      - name: deploy container
+        run: |
+          ssh  ${{ env.SSH_USER }}@${{ env.SSH_HOST }} -p ${{ env.SSH_PORT }} 'cd /home/deployer/${{ github.event.repository.name }}/ && ./container.sh'
