@@ -47,7 +47,7 @@ jobs:
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ env.SSH_KEY }} 
-          known_hosts: 'hello-world!'
+          known_hosts: 'hello-world'
           if_key_exists: ignore
       - name: Adding Known Hosts
         run: ssh-keyscan -p ${{ env.SSH_PORT }} -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
