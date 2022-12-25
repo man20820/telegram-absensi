@@ -165,7 +165,7 @@ bot.command('list', async (ctx) => {
         }`
       )
     }
-    ctx.reply(listUser.join('\n'), {
+    ctx.reply(listUser.join('\n') || 'Belum ada yang login', {
       reply_to_message_id: ctx.message.message_id
     })
   })
