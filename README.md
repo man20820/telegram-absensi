@@ -14,8 +14,12 @@ node index.js
 # Usage
 
 /login
+
 /afk <reason>
+
 /back
+
 /logout
+
 /list = list all logged in employee
 
