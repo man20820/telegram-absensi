@@ -1,6 +1,6 @@
 require('dotenv').config()
 const mongoose = require('mongoose')
-const { Telegraf } = require('telegraf')
+const { Telegraf, Input } = require('telegraf')
 const { message } = require('telegraf/filters')
 const { getUsernamesAndBody, now } = require('./helper')
 const cron = require('node-cron')
@@ -19,6 +19,7 @@ mongoose.connect(uri, {
 
 const ABSENSI = require('./models/absensi')
 const STICKER = require('./models/sticker')
+const STICKEROWNER = require('./models/sticker_owner')
 
 // bot
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
@@ -43,6 +44,45 @@ const COMMANDS = [
 
 ;(async () => {
   const stickers = await STICKER.find()
+
+  // get me
+  const me = await bot.telegram.getMe()
+
+  const STICKERSET_TITLE = process.env.STICKERSET_TITLE
+  const STICKERSET_NAME = STICKERSET_TITLE.replace(/\s+/g, '').toLowerCase().trim() + '_by_' + me.username
+  const STICKERSET_OWNER_ID = process.env.STICKERSET_OWNER_ID
+  const STICKERSET_DEFAULT_IMAGE = process.env.STICKERSET_DEFAULT_IMAGE
+
+  let GLOBAL_STICKERSET = null
+
+  try {
+    // check stickerset
+    try {
+      GLOBAL_STICKERSET = await bot.telegram.getStickerSet(STICKERSET_NAME)
+    } catch (err) {
+      GLOBAL_STICKERSET = false
+    }
+
+    // console.log(JSON.stringify(GLOBAL_STICKERSET, null, 2))
+
+    // init sticker
+    if (!GLOBAL_STICKERSET) {
+      const res = await bot.telegram.createNewStickerSet(
+        STICKERSET_OWNER_ID,
+        STICKERSET_NAME,
+        STICKERSET_TITLE,
+        {
+          emojis: '👋',
+          png_sticker: Input.fromURL(STICKERSET_DEFAULT_IMAGE)
+        }
+      )
+      if (!res) {
+        console.log('failed to init stickerset')
+      }
+    }
+  } catch (error) {
+    console.log('failed to init stickerset: ', error)
+  }
 
   const login = async (ctx) => {
     const from = '@' + ctx.from.username
@@ -127,6 +167,115 @@ const COMMANDS = [
       })
     }
   }
+
+  bot.command('/addsticker', async (ctx) => {
+    if (!ctx.message.reply_to_message || (!ctx.message.reply_to_message.document && !ctx.message.reply_to_message.sticker)) {
+      return
+    }
+
+    const message = ctx.message.text || ''
+    const messageSplitted = message.split(' ')
+    const emojiRaw = message.replace(messageSplitted[0], '').trim()
+    // /addsticker 😾,👎
+    if (emojiRaw.length < 2) {
+      ctx.reply('emoji cok', {
+        reply_to_message_id: ctx.message.message_id
+      })
+      return
+    }
+
+    const emojis = emojiRaw.split(',')
+
+    const fileID = ctx.message.reply_to_message?.document?.file_id ?? ctx.message.reply_to_message?.sticker?.file_id
+    const fileUniqueID = ctx.message.reply_to_message?.document?.file_unique_id ?? ctx.message.reply_to_message?.sticker?.file_unique_id
+
+    try {
+      // check sticker exist
+      const fileExist = await STICKEROWNER.findOne({
+        sticker_original_id: fileUniqueID
+      })
+
+      if (fileExist) {
+        ctx.reply('sticker syudah ada', {
+          reply_to_message_id: ctx.message.message_id
+        })
+        return
+      }
+
+      await ctx.telegram.addStickerToSet(
+        STICKERSET_OWNER_ID,
+        STICKERSET_NAME,
+        {
+          emojis: emojis.join(','),
+          png_sticker: Input.fromFileId(fileID)
+        }
+      )
+
+      // get real sticker file id
+      GLOBAL_STICKERSET = await ctx.telegram.getStickerSet(STICKERSET_NAME)
+
+      // add to sticker owner
+      STICKEROWNER.create({
+        username: ctx.message.from.username,
+        emojis,
+        sticker_original_id: fileUniqueID,
+        sticker_id: GLOBAL_STICKERSET.stickers[GLOBAL_STICKERSET.stickers.length - 1].file_id
+      })
+
+      ctx.reply('sticker added', {
+        reply_to_message_id: ctx.message.message_id
+      })
+    } catch (err) {
+      ctx.reply(`failed to add sticker: ${err.message}`, {
+        reply_to_message_id: ctx.message.message_id
+      })
+    }
+  })
+
+  bot.command('/delsticker', async (ctx) => {
+    if (!ctx.message.reply_to_message || !ctx.message.reply_to_message.sticker) {
+      return
+    }
+
+    const fileID = ctx.message.reply_to_message.sticker.file_id
+    // const username = ctx.message.from.username ?? ''
+
+    // ctx.reply(JSON.stringify(ctx.message.reply_to_message, null, 2))
+    // return
+
+    try {
+      // check from stikcer owner
+      // const owner = await STICKEROWNER.findOne({
+      //   username,
+      //   sticker_original_id: fileID
+      // })
+
+      // if (!owner) {
+      //   ctx.reply('sek gawe sopo sek mbusak sopo', {
+      //     reply_to_message_id: ctx.message.message_id
+      //   })
+      //   return
+      // }
+
+      await ctx.telegram.deleteStickerFromSet(fileID)
+
+      // await STICKEROWNER.findByIdAndDelete(owner.id)
+
+      ctx.reply('sticker removed from set. it may take a while to update', {
+        reply_to_message_id: ctx.message.message_id
+      })
+    } catch (err) {
+      ctx.reply('failed to removed sticker from set. maybe it has been deleted', {
+        reply_to_message_id: ctx.message.message_id
+      })
+    }
+  })
+
+  bot.command('/stickers', async (ctx) => {
+    ctx.reply(`https://t.me/addstickers/${STICKERSET_NAME}`, {
+      reply_to_message_id: ctx.message.message_id
+    })
+  })
 
   // bot
   bot.on(message('sticker'), (ctx) => {
