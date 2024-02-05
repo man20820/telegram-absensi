@@ -3,7 +3,9 @@ const mongoose = require('mongoose')
 const { Telegraf, Input } = require('telegraf')
 const { message } = require('telegraf/filters')
 const { getUsernamesAndBody, now } = require('./helper')
+const { matchWmoCode } = require('./wmo')
 const cron = require('node-cron')
+const axios = require('axios')
 
 // mongodb connection
 const connection = mongoose.connection
@@ -23,6 +25,39 @@ const STICKEROWNER = require('./models/sticker_owner')
 
 // bot
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
+const meteoWeather = {
+  method: 'get',
+  maxBodyLength: Infinity,
+  url: 'https://api.open-meteo.com/v1/forecast?latitude=-7.7961&longitude=110.3208&current=temperature_2m,rain,weather_code&timezone=Asia%2FBangkok',
+  headers: { }
+}
+const getWeather = () => {
+  axios.request(meteoWeather)
+    .then((response) => {
+      // console.log(JSON.stringify(response.data))
+      const temperature = response.data.current.temperature_2m
+      const rain = response.data.current.rain
+      const weatherCode = response.data.current.weather_code
+      const weatherString = matchWmoCode(weatherCode)
+      const message = `Prakiraan cuaca kantor Ambarketawang:\nTemperatur: ${temperature}°C\nHujan: ${rain}mm(inch)/hour\nKeterangan: ${weatherString}`
+      console.log(message)
+      bot.telegram.sendMessage(process.env.TELEGRAM_REPORT_CHAT_ID, message)
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+}
+// ctx.reply(listUserMsg.join('\n') || 'Belum ada yang login', {
+//   reply_to_message_id: ctx.message.message_id
+// })
+// schedule get weather
+cron.schedule('1 0 * * *', async () => {
+  try {
+    await getWeather()
+  } catch (err) {
+    console.error(err)
+  }
+})
 
 // schedule to reset data
 cron.schedule('1 0 * * *', async () => {
@@ -39,7 +74,8 @@ const COMMANDS = [
   'login',
   'afk',
   'back',
-  'logout'
+  'logout',
+  'cuaca'
 ]
 
 ;(async () => {
@@ -82,6 +118,14 @@ const COMMANDS = [
     }
   } catch (error) {
     console.log('failed to init stickerset: ', error)
+  }
+
+  const cuaca = async (ctx) => {
+    try {
+      await getWeather()
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const login = async (ctx) => {
@@ -301,6 +345,8 @@ const COMMANDS = [
   bot.command('afk', afk)
 
   bot.command('back', login)
+
+  bot.command('cuaca', cuaca)
 
   bot.command('list', async (ctx) => {
     const users = await ABSENSI.find()
