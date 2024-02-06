@@ -4,8 +4,10 @@ const { Telegraf, Input } = require('telegraf')
 const { message } = require('telegraf/filters')
 const { getUsernamesAndBody, now } = require('./helper')
 const { matchWmoCode } = require('./wmo')
+const { getCapture } = require('./rtsp')
 const cron = require('node-cron')
 const axios = require('axios')
+const fs = require('fs')
 
 // mongodb connection
 const connection = mongoose.connection
@@ -47,6 +49,24 @@ const getWeather = () => {
       console.log(error)
     })
 }
+
+const getCaptureFileName = async () => {
+  try {
+    await getCapture.captureImage(() => {
+      const ffmpegCommand = getCapture.writeStream.spawnargs
+      const fileName = ffmpegCommand.slice(-1).toString()
+      console.log(fileName)
+      if (fs.existsSync(fileName)) {
+        bot.telegram.sendPhoto(process.env.TELEGRAM_REPORT_CHAT_ID, { source: fileName })
+      } else {
+        bot.telegram.sendMessage(process.env.TELEGRAM_REPORT_CHAT_ID, 'sabar gan...')
+      }
+    })
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 // ctx.reply(listUserMsg.join('\n') || 'Belum ada yang login', {
 //   reply_to_message_id: ctx.message.message_id
 // })
@@ -75,7 +95,8 @@ const COMMANDS = [
   'afk',
   'back',
   'logout',
-  'cuaca'
+  'cuaca',
+  'mataelang'
 ]
 
 ;(async () => {
@@ -123,6 +144,14 @@ const COMMANDS = [
   const cuaca = async (ctx) => {
     try {
       await getWeather()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const mataelang = async (ctx) => {
+    try {
+      await getCaptureFileName()
     } catch (err) {
       console.error(err)
     }
@@ -347,6 +376,8 @@ const COMMANDS = [
   bot.command('back', login)
 
   bot.command('cuaca', cuaca)
+
+  bot.command('mataelang', mataelang)
 
   bot.command('list', async (ctx) => {
     const users = await ABSENSI.find()
