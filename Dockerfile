@@ -1,4 +1,6 @@
 FROM node:16.17
+RUN apt update
+RUN apt install ffmpeg -y
 
 WORKDIR /usr/src/app
 COPY . .
