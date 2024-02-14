@@ -5,7 +5,8 @@ const getCapture = new Recorder({
   url: process.env.RTSP,
   folder: 'cctv',
   name: 'cam1',
-  type: 'image'
+  type: 'image',
+  fileNameFormat: 'YYYYMMDDhhmmss'
 })
 
 // const getCaptureFileName = () => {
